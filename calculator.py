@@ -1,3 +1,4 @@
+#! /usr/bin/env pythnon3
 """
 For your homework this week, you'll be creating a wsgi application of
 your own.
@@ -40,18 +41,73 @@ To submit your homework:
 
 
 """
+import traceback as tb
+
+
+def how_to(*args):
+    """ Show how the use the website when calling just the bare site """
+    msg = '<h1>Calculator How To Page</h1>'
+    msg += '<li>URL: http://localhost:8080/[operation]/[number]/[number]/../[number]</li>'
+    msg += '<li>Availale operations: add / subtract / multiply, divid and exponent'
+    return msg
 
 
 def add(*args):
     """ Returns a STRING with the sum of the arguments """
+    return str(sum(map(float, args)))
 
-    # TODO: Fill sum with the correct value, based on the
-    # args provided.
-    sum = "0"
 
-    return sum
+def subtract(*args):
+    """
+    Return a STRING with the end product of x subtraction operations
+    where x is the number of operators passed
+    """
+    base = float(args[0])
+    for val in args[1:]:
+        base = base - float(val)
 
-# TODO: Add functions for handling more arithmetic operations.
+    return str(base)
+
+
+def multiply(*args):
+    """
+    Return a STRING with the end product of x multiplication operations
+    where x is the number of operators passed
+    """
+    base = 1
+    for integer in args:
+        base = base * float(integer)
+
+    return str(base)
+
+
+def divide(*args):
+    """
+    Return a STRING with the end product of x division operations
+    where x is the number of operators passed
+    """
+    base = float(args[0])
+    for integer in args[1:]:
+        if integer == 0:
+            raise ZeroDivisionError
+
+        base = base / float(integer)
+
+    return str(base)
+
+
+def exponent(*args):
+    """
+    Return a STRING with the end product of x exponent operations
+    where x is the number of operators passed
+    """
+    base = float(args[0])
+
+    for exp in args[1:]:
+        base = base ** float(exp)
+
+    return str(base)
+
 
 def resolve_path(path):
     """
@@ -59,26 +115,57 @@ def resolve_path(path):
     arguments.
     """
 
-    # TODO: Provide correct values for func and args. The
-    # examples provide the correct *syntax*, but you should
-    # determine the actual values of func and args using the
-    # path.
-    func = add
-    args = ['25', '32']
+    funcs = {
+        '': how_to,
+        'add': add,
+        'subtract': subtract,
+        'multiply': multiply,
+        'divide': divide,
+        'exponent': exponent
+        }
+
+    path = path.strip('/').split('/')
+    func_name = path[0]
+    args = path[1:]
+
+    try:
+        func = funcs[func_name]
+    except KeyError:
+        raise NameError
 
     return func, args
 
+
 def application(environ, start_response):
-    # TODO: Your application code from the book database
-    # work here as well! Remember that your application must
-    # invoke start_response(status, headers) and also return
-    # the body of the response in BYTE encoding.
-    #
-    # TODO (bonus): Add error handling for a user attempting
-    # to divide by zero.
-    pass
+    """ The application routing and execution """
+    status = "200 OK"
+    headers = [('Content-type', 'text/html')]
+    try:
+        path = environ.get('PATH_INFO', None)
+
+        if path is None:
+            raise NameError
+
+        func, args = resolve_path(path)
+        body = func(*args)
+        status = '200 OK'
+    except NameError:
+        body = '<h1>404 Not Found</h1>'
+        status = '404 Not Found'
+    except ZeroDivisionError:
+        body = '<h1>500 Server Error: Divide By Zero</h1>'
+        status = '500 Server Error'
+    except Exception:
+        body = '<h1>500 Server Error</h1'
+        status = '500 Server Error'
+        print(tb.format_exc())
+    finally:
+        headers.append(('Content-length', str(len(body))))
+        start_response(status, headers)
+        return [body.encode('utf8')]
+
 
 if __name__ == '__main__':
-    # TODO: Insert the same boilerplate wsgiref simple
-    # server creation that you used in the book database.
-    pass
+    from wsgiref.simple_server import make_server
+    SRV = make_server('localhost', 8080, application)
+    SRV.serve_forever()
